@@ -1,5 +1,3 @@
-# Files Docker should NOT send into the backend build (context = repository root).
-# Keeps images small and stops secrets (.env) from ending up inside an image.
 .git
 **/node_modules
 **/.env

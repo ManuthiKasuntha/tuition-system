@@ -14,7 +14,7 @@ const teacher = requireRole('teacher');
 const student = requireRole('student');
 
 // Public
-// Used by Docker healthchecks and the Jenkins smoke test: also proves MySQL is reachable
+// Health check for Docker and Jenkins
 router.get('/health', async (req, res) => {
   try {
     await pool.query('SELECT 1');

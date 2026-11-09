@@ -6,8 +6,7 @@ import mysqlPromise from 'mysql2/promise';
 import { config } from './env.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-// In Docker the schema is copied into the image and SCHEMA_PATH points to it;
-// locally it is read straight from the repository's database/ folder.
+// Docker sets SCHEMA_PATH; locally the repo file is used
 const SCHEMA_PATH = process.env.SCHEMA_PATH || path.resolve(__dirname, '../../../database/schema.sql');
 
 const rawPool = mysql.createPool({
@@ -40,7 +39,7 @@ export async function initDatabase() {
   }
 }
 
-/** Retries initDatabase so the API can start before MySQL has finished booting (e.g. in Docker). */
+/** Waits for MySQL to be ready before starting. */
 export async function initDatabaseWithRetry({ attempts = 15, delayMs = 3000 } = {}) {
   for (let i = 1; ; i++) {
     try {
