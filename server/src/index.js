@@ -1,7 +1,7 @@
 import cors from 'cors';
 import express from 'express';
 import multer from 'multer';
-import { initDatabase } from './config/db.js';
+import { initDatabaseWithRetry } from './config/db.js';
 import { config } from './config/env.js';
 import { MAX_FILE_MB } from './middleware/upload.js';
 import routes from './routes/index.js';
@@ -33,7 +33,7 @@ app.use((err, req, res, next) => {
 });
 
 try {
-  await initDatabase();
+  await initDatabaseWithRetry();
   console.log(`Connected to MySQL database "${config.db.database}"`);
 } catch (err) {
   console.error('\nCould not set up the MySQL database:', err.message);

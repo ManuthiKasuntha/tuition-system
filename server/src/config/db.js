@@ -6,7 +6,9 @@ import mysqlPromise from 'mysql2/promise';
 import { config } from './env.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SCHEMA_PATH = path.resolve(__dirname, '../../../database/schema.sql');
+// In Docker the schema is copied into the image and SCHEMA_PATH points to it;
+// locally it is read straight from the repository's database/ folder.
+const SCHEMA_PATH = process.env.SCHEMA_PATH || path.resolve(__dirname, '../../../database/schema.sql');
 
 const rawPool = mysql.createPool({
   ...config.db,
@@ -35,5 +37,19 @@ export async function initDatabase() {
     await conn.query(schema);
   } finally {
     await conn.end();
+  }
+}
+
+/** Retries initDatabase so the API can start before MySQL has finished booting (e.g. in Docker). */
+export async function initDatabaseWithRetry({ attempts = 15, delayMs = 3000 } = {}) {
+  for (let i = 1; ; i++) {
+    try {
+      return await initDatabase();
+    } catch (err) {
+      const retryable = ['ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN', 'ETIMEDOUT', 'PROTOCOL_CONNECTION_LOST'].includes(err.code);
+      if (!retryable || i >= attempts) throw err;
+      console.log(`Waiting for MySQL at ${config.db.host}:${config.db.port} (attempt ${i}/${attempts}): ${err.code}`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
   }
 }

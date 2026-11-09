@@ -3,6 +3,7 @@ import * as auth from '../controllers/authController.js';
 import * as classes from '../controllers/classController.js';
 import * as materials from '../controllers/materialController.js';
 import * as sessions from '../controllers/sessionController.js';
+import { pool } from '../config/db.js';
 import { DISTRICTS, GRADES, MEDIUMS, SUBJECTS } from '../constants.js';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { loadClass, requireMember, requireOwner } from '../middleware/classAccess.js';
@@ -13,7 +14,15 @@ const teacher = requireRole('teacher');
 const student = requireRole('student');
 
 // Public
-router.get('/health', (req, res) => res.json({ status: 'ok' }));
+// Used by Docker healthchecks and the Jenkins smoke test: also proves MySQL is reachable
+router.get('/health', async (req, res) => {
+  try {
+    await pool.query('SELECT 1');
+    res.json({ status: 'ok', database: 'up' });
+  } catch {
+    res.status(503).json({ status: 'error', database: 'down' });
+  }
+});
 router.get('/meta', (req, res) => res.json({ subjects: SUBJECTS, grades: GRADES, districts: DISTRICTS, mediums: MEDIUMS }));
 router.post('/auth/register', auth.register);
 router.post('/auth/login', auth.login);

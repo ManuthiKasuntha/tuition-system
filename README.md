@@ -1,4 +1,4 @@
-# TuitionHub – Online Tuition Class Management System
+ # TuitionHub – Online Tuition Class Management System
 
 A full-stack web app where tuition teachers across Sri Lanka run their classes online and students find and join them.
 
@@ -16,12 +16,26 @@ A full-stack web app where tuition teachers across Sri Lanka run their classes o
 - **Students:** search classes by subject, grade, district; enroll/leave; join live sessions; download materials; recommendations for their grade
 - Access control: only enrolled students see join links and materials; only the class owner can manage it
 
-## Requirements
+## Run with Docker (recommended – Linux / WSL2)
+
+```bash
+cp .env.example .env          # then change the passwords and JWT_SECRET
+docker compose up -d --build  # starts frontend (Nginx), backend (Express) and MySQL
+docker compose ps             # wait until all three are "healthy"
+```
+
+Open http://localhost:3000. Data is kept in Docker volumes; stop with `docker compose down` (never `down -v`).
+
+Docker, Jenkins CI/CD and deployment instructions: **[DEVOPS_SETUP.md](DEVOPS_SETUP.md)**.
+
+## Run without Docker (local development)
+
+### Requirements
 
 - Node.js 20+
 - MySQL 8+ running locally
 
-## Setup
+### Setup
 
 ```bash
 # 1. Backend

@@ -1,0 +1,82 @@
+# TuitionHub - Docker Compose stack (3 containers: frontend, backend, mysql)
+#
+#   Start / update : docker compose up -d --build
+#   Status         : docker compose ps
+#   Logs           : docker compose logs -f
+#   Stop           : docker compose down        (data is KEPT in volumes)
+#
+#   NEVER use "docker compose down -v" to restart: -v deletes the database volume.
+#
+# Values like ${JWT_SECRET} are read from the ".env" file next to this file
+# (copy .env.example to .env first).
+
+# Fixed project name: the stack is called "tuition-system" no matter which folder
+# it is started from (your clone or the Jenkins workspace), so Jenkins updates the
+# same containers and re-uses the same data volumes.
+name: tuition-system
+
+services:
+  # ---------------------------------------------------------------- MySQL
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      # On FIRST start MySQL creates this database and an application user
+      # that has full rights on it (the backend does not use root).
+      MYSQL_DATABASE: ${DB_NAME:-tuition_system}
+      MYSQL_USER: ${DB_USER:-tuition_app}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      TZ: UTC
+    volumes:
+      - mysql-data:/var/lib/mysql      # database files survive container re-creation
+    healthcheck:
+      # "healthy" only when MySQL accepts TCP connections with the app user's credentials
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u\"$$MYSQL_USER\" -p\"$$MYSQL_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # No "ports:" on purpose - MySQL is reachable only from inside the Docker network.
+
+  # ---------------------------------------------------------------- Backend API
+  backend:
+    build:
+      context: .                      # repository root (needs database/schema.sql)
+      dockerfile: server/Dockerfile
+    image: tuition-system-backend:latest
+    restart: unless-stopped
+    environment:
+      PORT: 5000
+      # "mysql" is the service name above. Inside Docker, "localhost" would mean
+      # the backend container itself, so we must use the service name.
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-tuition_app}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      DB_NAME: ${DB_NAME:-tuition_system}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      CLIENT_URL: http://localhost:${APP_PORT:-3000}
+    volumes:
+      - uploads:/app/uploads           # uploaded learning materials survive re-creation
+    depends_on:
+      mysql:
+        condition: service_healthy     # wait until MySQL is really ready
+    # No "ports:" - the browser reaches the API through the frontend's Nginx (/api).
+
+  # ---------------------------------------------------------------- Frontend (Nginx)
+  frontend:
+    build:
+      context: ./client
+    image: tuition-system-frontend:latest
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-3000}:80"         # host port : container port
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  mysql-data:
+  uploads:
